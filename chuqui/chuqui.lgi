@@ -1,0 +1,149 @@
+# Read in the two data files
+read / avs / chuqui_clean_Z.avs / mo1
+read / avs / chuqui_clean_XY.avs / mo2
+read / avs / alpha_shape_boundary.avs / mo5
+
+cmo / status / brief
+cmo / printatt / mo1 /-xyz- / minmax
+cmo / printatt / mo2 /-xyz- / minmax
+
+cmo / create / motri1 / / / triplane
+copypts / motri1 / mo1
+connect
+cmo/copyatt/motri1/mo2/zic/zic
+cmo / printatt / motri1 /-xyz- / minmax
+dump / avs / tmp_connect_base.inp / motri1
+
+
+
+cmo / create / mohex / / / tri
+createpts / brick / xyz / 75 75 25 / 0 -1 500 / 3200 5400 3100
+
+cmo / create / mosurf1
+cmo / select / mosurf1
+
+define / X0S /  1600
+define / X1S / 1000.0
+define / Y0S /  6000.0
+define / Y1S / -100.0
+
+define / Z1 / 5000.
+define / Z2 / 400.
+define / Z3 / 400.
+define / Z4 /  5000.
+
+quadxy / 10 10 /X0S Y0S Z1/X1S Y0S Z2/X1S Y1S Z3/X0S Y1S Z4
+createpts/brick/xyz/ 10 10 1 /1,0,0/connect
+
+dump / avs /L1.inp / mosurf1
+
+cmo / create / mosurf2
+cmo / select / mosurf2
+
+define / 2X0S / 6000
+define / 2X1S / 6000
+define / 2Y0S /  6000.0
+define / 2Y1S / -100.0
+
+define / 2Z1 / 5000.
+define / 2Z2 / 400.
+define / 2Z3 / 400.
+define / 2Z4 /  5000.
+
+quadxy / 10 10 /4000 Y0S 4000/-1000 Y0S Z2/-1000 Y1S Z3/4500 Y1S 4000
+createpts/brick/xyz/ 10 10 1 /1,0,0/connect
+
+
+dump / avs /L3.inp / mosurf2
+
+
+surface / s_11 / reflect / sheet / mosurf2
+surface / s_22 / reflect / sheet / mosurf1
+surface / s1 / reflect / sheet / motri1
+cmo / delete / mosurf1
+cmo / delete / mosurf2
+cmo / select / mohex
+
+
+cmo / select / mohex
+intersect_elements / mohex / s1 / if_inter
+eltset / e_refine / if_inter / gt / 0
+refine / eltset / eltset get e_refine
+cmo / DELATT / mohex / if_inter
+
+
+
+region / r_22 / ge s_22
+pset   / p_r_2 / region / r_22 / 1 0 0
+eltset / e_r_22 / region / r_22
+cmo / setatt / mohex / imt     / pset   get p_r_22 / 3
+cmo / setatt / mohex / itetclr / eltset get e_r_22 / 3
+
+
+region / r_33 / le s_11
+pset   / p_r_3 / region / r_33 / 1 0 0
+eltset / e_r_33 / region / r_33
+cmo / setatt / mohex / imt     / pset   get p_r_33 / 4
+cmo / setatt / mohex / itetclr / eltset get e_r_33 / 4
+
+
+
+region / r_11 / gt s_11 and gt s_22
+pset   / p_r_1 / region / r_11 / 1 0 0
+eltset / e_r_11 / region / r_11
+cmo / setatt / mohex / imt     / pset   get p_r_11 / 2
+cmo / setatt / mohex / itetclr / eltset get e_r_11 / 2
+
+
+region / r_44 / ge s1
+pset   / p_r_4 / region / r_44 / 1 0 0
+eltset / e_r_44 / region / r_44
+cmo / setatt / mohex / imt     / pset   get p_r_44 / 5
+cmo / setatt / mohex / itetclr / eltset get e_r_44 / 5
+
+
+extrude / mo_fence / mo5 / const / 4000 / volume / 0. 0. 1.
+dump / avs /mo_fence.avs / mo_fence
+
+cmo / select / mohex
+surface / s_bndry / reflect / sheet / mo_fence
+cmo / select / mohex
+region / r_bndry / ge s_bndry
+pset / p_bndry / region r_bndry
+eltset / e_delete2 / region r_bndry
+
+cmo / addatt / mohex / id_in_out_bndry / vint / scalar / nelements
+cmo / setatt / mohex / id_in_out_bndry / 1 0 0 / 4
+cmo / setatt / mohex / id_in_out_bndry / eltset get e_delete3 / 3
+cmo / setatt / mohex / id_in_out_bndry / eltset get e_delete2 / 2
+cmo / setatt / mohex / id_in_out_bndry / eltset get e_delete1 / 1
+eltset / e_delete4 /    id_in_out_bndry / eq / 4
+eltset / e_delete3 /    id_in_out_bndry / eq / 3
+eltset / e_delete2 /    id_in_out_bndry / eq / 2
+eltset / e_delete1 /    id_in_out_bndry / eq / 1
+rmpoint / element / eltset get e_delete1
+rmpoint / element / eltset get e_delete2
+rmpoint / compress
+resetpts / itp
+
+
+cmo / select / mohex
+intersect_elements / mohex / s_11 / if_inter
+eltset / e_refine / if_inter / gt / 0
+refine / eltset / eltset get e_refine
+cmo / DELATT / mohex / if_inter
+
+intersect_elements / mohex / s_11 / if_inter
+eltset / e_refine / if_inter / gt / 0
+refine/ eltset / eltset get e_refine
+cmo / setatt / mohex / if_inter / 1 0 0 / 0
+cmo / DELATT / mohex / if_inter
+
+
+grid2grid / tree_to_fe / mohex_octree /  mohex
+define / mohex / mohex_octree
+
+dump / exo /mesh_hex.exo / mohex
+dump / avs /mesh_hex.inp / mohex
+
+finish
